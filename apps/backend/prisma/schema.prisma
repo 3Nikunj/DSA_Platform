@@ -1,0 +1,363 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User model for authentication and profile
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String   @unique
+  password  String
+  firstName String?
+  lastName  String?
+  avatar    String?
+  bio       String?
+  
+  // User preferences
+  theme     String   @default("light")
+  language  String   @default("en")
+  
+  // Gamification
+  level     Int      @default(1)
+  xp        Int      @default(0)
+  coins     Int      @default(0)
+  streak    Int      @default(0)
+  
+  // Account status
+  isActive    Boolean  @default(true)
+  isVerified  Boolean  @default(false)
+  isPremium   Boolean  @default(false)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lastLogin DateTime?
+  
+  // Relations
+  progress        Progress[]
+  achievements    UserAchievement[]
+  submissions     Submission[]
+  challenges      ChallengeAttempt[]
+  competitions    CompetitionParticipant[]
+  sessions        Session[]
+  
+  @@map("users")
+}
+
+// Session model for JWT token management
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("sessions")
+}
+
+// Algorithm categories
+model Category {
+  id          String @id @default(cuid())
+  name        String @unique
+  description String?
+  icon        String?
+  color       String?
+  order       Int    @default(0)
+  
+  algorithms Algorithm[]
+  
+  @@map("categories")
+}
+
+// Algorithm model
+model Algorithm {
+  id          String @id @default(cuid())
+  name        String
+  slug        String @unique
+  description String
+  
+  // Content
+  explanation String // Rich text content
+  pseudocode  String?
+  
+  // Metadata
+  difficulty    String @default("BEGINNER")
+  timeComplexity String
+  spaceComplexity String
+  
+  // Gamification
+  xpReward    Int @default(10)
+  coinReward  Int @default(5)
+  
+  // Status
+  isPublished Boolean @default(false)
+  
+  // Relations
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  progress    Progress[]
+  submissions Submission[]
+  challenges  Challenge[]
+  
+  @@map("algorithms")
+}
+
+// User progress tracking
+model Progress {
+  id String @id @default(cuid())
+  
+  userId      String
+  algorithmId String
+  
+  // Progress status
+  status        String @default("NOT_STARTED")
+  completedAt   DateTime?
+  timeSpent     Int            @default(0) // in seconds
+  attempts      Int            @default(0)
+  
+  // Performance metrics
+  bestScore     Float?
+  averageScore  Float?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  algorithm Algorithm @relation(fields: [algorithmId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, algorithmId])
+  @@map("progress")
+}
+
+// Code submissions
+model Submission {
+  id String @id @default(cuid())
+  
+  userId      String
+  algorithmId String
+  
+  // Code details
+  code        String
+  language    String
+  
+  // Execution results
+  status      String @default("PENDING")
+  score       Float?
+  executionTime Int? // in milliseconds
+  memoryUsage   Int? // in bytes
+  
+  // Test results
+  testsPassed Int @default(0)
+  testsTotal  Int @default(0)
+  
+  // Error details
+  error       String?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  
+  // Relations
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  algorithm Algorithm @relation(fields: [algorithmId], references: [id], onDelete: Cascade)
+  
+  @@map("submissions")
+}
+
+// Achievement system
+model Achievement {
+  id          String @id @default(cuid())
+  name        String @unique
+  description String
+  icon        String
+  
+  // Requirements
+  type        String @default("ALGORITHM_COMPLETION")
+  requirement String // JSON string for flexible requirement structure
+  
+  // Rewards
+  xpReward   Int @default(0)
+  coinReward Int @default(0)
+  
+  // Metadata
+  isHidden   Boolean @default(false)
+  rarity     String  @default("COMMON")
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  
+  // Relations
+  userAchievements UserAchievement[]
+  
+  @@map("achievements")
+}
+
+// User achievements junction table
+model UserAchievement {
+  id String @id @default(cuid())
+  
+  userId        String
+  achievementId String
+  
+  // Progress
+  progress    Float   @default(0) // 0-100
+  isCompleted Boolean @default(false)
+  
+  // Timestamps
+  unlockedAt DateTime?
+  createdAt  DateTime  @default(now())
+  
+  // Relations
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, achievementId])
+  @@map("user_achievements")
+}
+
+// Coding challenges
+model Challenge {
+  id          String @id @default(cuid())
+  title       String
+  description String
+  
+  // Challenge details
+  algorithmId String?
+  difficulty  String @default("BEGINNER")
+  
+  // Test cases
+  testCases   String // JSON string for array of test cases
+  
+  // Constraints
+  timeLimit   Int @default(5000) // milliseconds
+  memoryLimit Int @default(128)  // MB
+  
+  // Gamification
+  xpReward   Int @default(20)
+  coinReward Int @default(10)
+  
+  // Status
+  isActive Boolean @default(true)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  algorithm Algorithm? @relation(fields: [algorithmId], references: [id])
+  attempts  ChallengeAttempt[]
+  
+  @@map("challenges")
+}
+
+// Challenge attempts
+model ChallengeAttempt {
+  id String @id @default(cuid())
+  
+  userId      String
+  challengeId String
+  
+  // Submission details
+  code        String
+  language    String
+  
+  // Results
+  status        String @default("PENDING")
+  score         Float?
+  executionTime Int? // milliseconds
+  memoryUsage   Int? // bytes
+  
+  // Test results
+  testsPassed Int @default(0)
+  testsTotal  Int @default(0)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  
+  // Relations
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  
+  @@map("challenge_attempts")
+}
+
+// Competitions
+model Competition {
+  id          String @id @default(cuid())
+  title       String
+  description String
+  
+  // Competition details
+  startTime DateTime
+  endTime   DateTime
+  
+  // Rules
+  maxParticipants Int?
+  isPublic        Boolean @default(true)
+  
+  // Prizes
+  prizes String? // JSON string for prize structure
+  
+  // Status
+  status String @default("UPCOMING")
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  participants CompetitionParticipant[]
+  
+  @@map("competitions")
+}
+
+// Competition participants
+model CompetitionParticipant {
+  id String @id @default(cuid())
+  
+  userId        String
+  competitionId String
+  
+  // Performance
+  score    Float   @default(0)
+  rank     Int?
+  
+  // Status
+  isActive Boolean @default(true)
+  
+  // Timestamps
+  joinedAt DateTime @default(now())
+  
+  // Relations
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, competitionId])
+  @@map("competition_participants")
+}
+
+// Note: SQLite doesn't support enums, so we use strings with default values
+// Valid values for reference:
+// - Difficulty: BEGINNER, EASY, MEDIUM, HARD, EXPERT
+// - ProgressStatus: NOT_STARTED, IN_PROGRESS, COMPLETED, MASTERED
+// - SubmissionStatus: PENDING, RUNNING, ACCEPTED, WRONG_ANSWER, TIME_LIMIT_EXCEEDED, MEMORY_LIMIT_EXCEEDED, RUNTIME_ERROR, COMPILATION_ERROR, SYSTEM_ERROR
+// - AchievementType: ALGORITHM_COMPLETION, STREAK, SCORE, TIME_BASED, CHALLENGE_COMPLETION, COMPETITION_RANK, SOCIAL, MILESTONE
+// - Rarity: COMMON, UNCOMMON, RARE, EPIC, LEGENDARY
+// - CompetitionStatus: UPCOMING, ACTIVE, COMPLETED, CANCELLED
