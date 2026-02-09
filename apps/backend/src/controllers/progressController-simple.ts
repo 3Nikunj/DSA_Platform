@@ -44,6 +44,40 @@ export const getProgressOverview = async (req: AuthenticatedRequest, res: Respon
 };
 
 /**
+ * Get level progress
+ */
+export const getLevelProgress = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        error: 'User not authenticated',
+      });
+      return;
+    }
+
+    // Mock data for now - in a real implementation, this would fetch from database
+    const mockData = {
+      currentLevel: 3,
+      currentXP: 750,
+      xpToNextLevel: 150,
+      totalXP: 750,
+    };
+
+    res.json({
+      success: true,
+      data: mockData,
+    });
+  } catch (error) {
+    console.error('Error getting level progress:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+    });
+  }
+};
+
+/**
  * Get progress for a specific algorithm
  */
 export const getAlgorithmProgress = async (req: AuthenticatedRequest, res: Response): Promise<void> => {

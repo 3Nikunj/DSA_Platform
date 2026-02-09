@@ -278,7 +278,7 @@ export const AlgorithmsPage: React.FC = () => {
 
             {/* Action Button */}
             <Link
-              to={`/visualization/${algorithm.id}`}
+              to={`/algorithms/${algorithm.id}/visualize`}
               className="w-full btn btn-primary flex items-center justify-center space-x-2"
             >
               <PlayIcon className="w-4 h-4" />

@@ -11,8 +11,9 @@ export interface User {
   lastName: string;
   avatar?: string;
   level: number;
-  experience: number;
-  role: 'USER' | 'ADMIN';
+  xp: number;
+  isVerified: boolean;
+  isPremium: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -26,9 +27,13 @@ export interface AuthState {
 }
 
 export interface AuthActions {
-  login: (email: string, password: string) => Promise<void>;
+  login: (
+    identifier: string,
+    password: string,
+    type?: 'email' | 'username'
+  ) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   refreshToken: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
   clearError: () => void;
@@ -54,24 +59,31 @@ const initialState: AuthState = {
   error: null,
 };
 
-export const useAuthStore = create<AuthStore>()(persist(
+export const useAuthStore = create<AuthStore>()(
+  persist(
     (set, get) => ({
       ...initialState,
 
-      login: async (email: string, password: string) => {
+      login: async (
+        identifier: string,
+        password: string,
+        type: 'email' | 'username' = 'email'
+      ) => {
         try {
           set({ isLoading: true, error: null });
-          
-          const response = await api.post('/auth/login', {
-            email,
-            password,
-          });
+
+          const payload =
+            type === 'email'
+              ? { email: identifier, password }
+              : { username: identifier, password };
+
+          const response = await api.post('/auth/login', payload);
 
           const { user, token } = response.data;
-          
+
           // Set token in API headers
           api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-          
+
           set({
             user,
             token,
@@ -82,7 +94,9 @@ export const useAuthStore = create<AuthStore>()(persist(
 
           toast.success(`Welcome back, ${user.firstName}!`);
         } catch (error: unknown) {
-          const errorMessage = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Login failed';
+          const errorMessage =
+            (error as { response?: { data?: { message?: string } } })?.response
+              ?.data?.message || 'Login failed';
           set({
             user: null,
             token: null,
@@ -98,24 +112,39 @@ export const useAuthStore = create<AuthStore>()(persist(
       register: async (data: RegisterData) => {
         try {
           set({ isLoading: true, error: null });
-          
-          const response = await api.post('/auth/register', data);
-          const { user, token } = response.data;
-          
-          // Set token in API headers
-          api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-          
-          set({
-            user,
-            token,
-            isAuthenticated: true,
-            isLoading: false,
-            error: null,
-          });
 
-          toast.success(`Welcome to DSA Learning Platform, ${user.firstName}!`);
+          const response = await api.post('/auth/register', data);
+          const { user, token, message } = response.data;
+
+          if (token) {
+            api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            set({
+              user,
+              token,
+              isAuthenticated: true,
+              isLoading: false,
+              error: null,
+            });
+            toast.success(
+              `Welcome to DSA Learning Platform, ${user.firstName}!`
+            );
+          } else {
+            set({
+              user: null,
+              token: null,
+              isAuthenticated: false,
+              isLoading: false,
+              error: null,
+            });
+            toast.success(
+              message ||
+                'Registration successful. Please check your email to verify your account.'
+            );
+          }
         } catch (error: unknown) {
-          const errorMessage = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Registration failed';
+          const errorMessage =
+            (error as { response?: { data?: { message?: string } } })?.response
+              ?.data?.message || 'Registration failed';
           set({
             user: null,
             token: null,
@@ -128,19 +157,26 @@ export const useAuthStore = create<AuthStore>()(persist(
         }
       },
 
-      logout: () => {
-        // Remove token from API headers
-        delete api.defaults.headers.common['Authorization'];
-        
-        set({
-          user: null,
-          token: null,
-          isAuthenticated: false,
-          isLoading: false,
-          error: null,
-        });
+      logout: async () => {
+        try {
+          await api.post('/auth/logout');
+        } catch (error) {
+          void error;
+        } finally {
+          delete api.defaults.headers.common['Authorization'];
+          localStorage.removeItem('auth-storage');
+          localStorage.removeItem('auth-storage-supabase');
 
-        toast.success('Logged out successfully');
+          set({
+            user: null,
+            token: null,
+            isAuthenticated: false,
+            isLoading: false,
+            error: null,
+          });
+
+          toast.success('Logged out successfully');
+        }
       },
 
       refreshToken: async () => {
@@ -152,10 +188,10 @@ export const useAuthStore = create<AuthStore>()(persist(
 
           const response = await api.post('/auth/refresh', { token });
           const { token: newToken, user } = response.data;
-          
+
           // Update token in API headers
           api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-          
+
           set({
             user,
             token: newToken,
@@ -172,10 +208,10 @@ export const useAuthStore = create<AuthStore>()(persist(
       updateProfile: async (data: Partial<User>) => {
         try {
           set({ isLoading: true, error: null });
-          
+
           const response = await api.put('/users/profile', data);
           const updatedUser = response.data;
-          
+
           set({
             user: updatedUser,
             isLoading: false,
@@ -184,7 +220,9 @@ export const useAuthStore = create<AuthStore>()(persist(
 
           toast.success('Profile updated successfully');
         } catch (error: unknown) {
-          const errorMessage = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Profile update failed';
+          const errorMessage =
+            (error as { response?: { data?: { message?: string } } })?.response
+              ?.data?.message || 'Profile update failed';
           set({
             isLoading: false,
             error: errorMessage,
@@ -204,10 +242,10 @@ export const useAuthStore = create<AuthStore>()(persist(
 
           // Set token in API headers
           api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-          
+
           const response = await api.get('/auth/me');
           const user = response.data;
-          
+
           set({
             user,
             isAuthenticated: true,
@@ -237,7 +275,7 @@ export const useAuthStore = create<AuthStore>()(persist(
     }),
     {
       name: 'auth-storage',
-      partialize: (state) => ({
+      partialize: state => ({
         user: state.user,
         token: state.token,
         isAuthenticated: state.isAuthenticated,
@@ -245,6 +283,10 @@ export const useAuthStore = create<AuthStore>()(persist(
     }
   )
 );
+
+if (typeof window !== 'undefined') {
+  useAuthStore.getState().checkAuth();
+}
 
 // Initialize auth check on app start
 if (typeof window !== 'undefined') {

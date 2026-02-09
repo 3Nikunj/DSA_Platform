@@ -75,4 +75,7 @@ router.get('/categories', authenticateToken, progressController.getAllCategories
 // Get progress insights
 router.get('/insights', authenticateToken, progressController.getProgressInsights);
 
+// Get level progress
+router.get('/level', authenticateToken, progressController.getLevelProgress);
+
 export default router;
