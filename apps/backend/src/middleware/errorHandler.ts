@@ -223,3 +223,15 @@ export const createError = {
   internal: (message: string = 'Internal server error') => new AppError(message, 500, false),
   rateLimit: (message: string = 'Too many requests') => new RateLimitError(message),
 };
+
+// 404 Not Found middleware
+export const notFound = (req: Request, res: Response, next: NextFunction): void => {
+  const error = new NotFoundError(`Route ${req.originalUrl} not found`);
+  res.status(404).json({
+    success: false,
+    error: {
+      message: error.message,
+      statusCode: 404,
+    },
+  });
+};

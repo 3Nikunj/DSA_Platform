@@ -18,32 +18,31 @@ This is a monorepo containing:
 ```
 dsa-learning-platform/
 ├── apps/
-│   ├── frontend/          # React + TypeScript frontend
-│   └── backend/           # Node.js + Express backend
-├── packages/
-│   ├── shared/            # Shared utilities and components
-│   ├── types/             # TypeScript type definitions
-│   └── utils/             # Common utility functions
-└── docs/                  # Documentation
+│   ├── frontend/          # React + Vite + TypeScript frontend
+│   └── backend/           # Node.js + Express (TypeScript) backend
+└── docs/                  # Documentation (architecture, API, data model, dev setup)
 ```
 
 ## 🛠️ Tech Stack
 
 ### Frontend
 - **React 18** with TypeScript
-- **Three.js** + React Three Fiber for 3D visualizations
-- **D3.js** for 2D charts and graphs
+- **Vite** for dev/build tooling
+- **Tailwind CSS** for styling
+- **React Router** for navigation
+- **@tanstack/react-query** for data fetching/caching
+- **Zustand** for auth/state persistence
 - **Monaco Editor** for code editing
-- **Material-UI** for UI components
-- **Redux Toolkit** for state management
+- **Three.js** + React Three Fiber for 3D visualizations
 
 ### Backend
 - **Node.js** + Express with TypeScript
-- **PostgreSQL** for primary database
+- **Prisma** ORM (SQLite by default; Postgres supported)
 - **Redis** for caching and sessions
 - **Socket.io** for real-time features
-- **Docker** for code execution sandboxing
 - **JWT** for authentication
+- **Helmet**, **CORS**, **Compression**, **Rate Limiting** for security
+- **Winston** + **Morgan** for logging
 
 ### DevOps
 - **Docker** + Docker Compose
@@ -75,7 +74,7 @@ dsa-learning-platform/
 3. **Set up environment variables**
    ```bash
    cp apps/backend/.env.example apps/backend/.env
-   cp apps/frontend/.env.example apps/frontend/.env
+   # (optional) create apps/frontend/.env and set VITE_API_URL=http://localhost:5000/api
    ```
 
 4. **Start development servers**
@@ -84,8 +83,18 @@ dsa-learning-platform/
    ```
 
    This will start:
-   - Frontend: http://localhost:3000
+   - Frontend: http://localhost:5173
    - Backend: http://localhost:5000
+
+   See `docs/dev-setup.md` for database provider alignment and troubleshooting.
+
+## 📚 Documentation
+
+- Architecture & Topology: `docs/context.md`
+- Backend API Inventory: `docs/api-inventory.md`
+- Data Model (Prisma): `docs/data-model.md`
+- Development Setup: `docs/dev-setup.md`
+- Frontend Overview: `docs/frontend-overview.md`
 
 ## 📝 Available Scripts
 

@@ -33,13 +33,26 @@ const registerValidation = [
 
 const loginValidation = [
   body('email')
+    .optional()
     .isEmail()
     .normalizeEmail()
     .withMessage('Please provide a valid email'),
+  body('username')
+    .optional()
+    .isLength({ min: 3, max: 20 })
+    .matches(/^[a-zA-Z0-9_]+$/)
+    .withMessage('Username must be 3-20 characters and contain only letters, numbers, and underscores'),
   body('password')
     .notEmpty()
     .withMessage('Password is required'),
-];
+].concat([
+  body().custom((value, { req }) => {
+    if (!req.body.email && !req.body.username) {
+      throw new Error('Either email or username is required');
+    }
+    return true;
+  })
+]);
 
 const forgotPasswordValidation = [
   body('email')
@@ -79,7 +92,7 @@ router.get('/verify-email/:token', asyncHandler(authController.verifyEmail));
 // Protected routes
 // router.post('/logout', authenticateToken, asyncHandler(authController.logout));
 // router.post('/change-password', authenticateToken, changePasswordValidation, validateRequest, asyncHandler(authController.changePassword));
-// router.get('/me', authenticateToken, asyncHandler(authController.getCurrentUser));
+router.get('/me', authenticateToken, asyncHandler(authController.getCurrentUser));
 // router.post('/resend-verification', authenticateToken, asyncHandler(authController.resendVerification));
 
 // OAuth routes (for future implementation)

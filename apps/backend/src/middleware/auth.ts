@@ -2,23 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import * as jwt from 'jsonwebtoken';
 import { prisma } from '../app';
 import { redisService } from '../config/redis';
-// import { AuthenticationError, AuthorizationError } from './errorHandler';
+import { AuthenticationError, AuthorizationError } from './errorHandler';
 import { logger } from '../utils/logger';
-
-// Temporary simple error classes
-class AuthenticationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'AuthenticationError';
-  }
-}
-
-class AuthorizationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'AuthorizationError';
-  }
-}
 
 // Extend Request interface to include user
 declare global {

@@ -158,12 +158,12 @@ export class UserService {
   }
 
   static async getStats() {
-    const response = await api.get('/users/stats');
+    const response = await api.get('/users/me/statistics');
     return response.data;
   }
 
   static async getLeaderboard(limit = 10) {
-    const response = await api.get(`/users/leaderboard?limit=${limit}`);
+    const response = await api.get(`/users/leaderboard/xp?limit=${limit}`);
     return response.data;
   }
 }

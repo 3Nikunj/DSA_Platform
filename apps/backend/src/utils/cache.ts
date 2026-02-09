@@ -1,7 +1,99 @@
-import { redis } from '../app';
+/**
+ * Cache utility functions (Redis-free implementation for Supabase)
+ * Uses in-memory cache for development and can be extended to use Supabase edge functions
+ */
+
+// Simple in-memory cache implementation
+class SimpleCache {
+  private cache = new Map<string, { value: any; expires: number }>();
+
+  async get(key: string): Promise<string | null> {
+    const item = this.cache.get(key);
+    if (!item) return null;
+
+    if (Date.now() > item.expires) {
+      this.cache.delete(key);
+      return null;
+    }
+
+    return item.value;
+  }
+
+  async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
+    const expires = ttlSeconds
+      ? Date.now() + ttlSeconds * 1000
+      : Number.MAX_SAFE_INTEGER;
+    this.cache.set(key, { value, expires });
+  }
+
+  async del(key: string): Promise<void> {
+    this.cache.delete(key);
+  }
+
+  async delMany(keys: string[]): Promise<void> {
+    keys.forEach(key => this.cache.delete(key));
+  }
+
+  async exists(key: string): Promise<number> {
+    return this.cache.has(key) ? 1 : 0;
+  }
+
+  async expire(key: string, ttlSeconds: number): Promise<void> {
+    const item = this.cache.get(key);
+    if (item) {
+      item.expires = Date.now() + ttlSeconds * 1000;
+    }
+  }
+
+  async mget(keys: string[]): Promise<(string | null)[]> {
+    return Promise.all(keys.map(key => this.get(key)));
+  }
+
+  async mset(keyValuePairs: string[]): Promise<void> {
+    for (let i = 0; i < keyValuePairs.length; i += 2) {
+      const key = keyValuePairs[i];
+      const value = keyValuePairs[i + 1];
+      if (key && value) {
+        await this.set(key, value);
+      }
+    }
+  }
+
+  async incr(key: string): Promise<number> {
+    const current = await this.get(key);
+    const newValue = (parseInt(current || '0') + 1).toString();
+    await this.set(key, newValue);
+    return parseInt(newValue);
+  }
+
+  async decr(key: string): Promise<number> {
+    const current = await this.get(key);
+    const newValue = (parseInt(current || '0') - 1).toString();
+    await this.set(key, newValue);
+    return parseInt(newValue);
+  }
+
+  async keys(pattern: string): Promise<string[]> {
+    const regex = new RegExp(pattern.replace('*', '.*'));
+    return Array.from(this.cache.keys()).filter(key => regex.test(key));
+  }
+
+  // Clean up expired entries
+  cleanup(): void {
+    const now = Date.now();
+    for (const [key, item] of this.cache.entries()) {
+      if (now > item.expires) {
+        this.cache.delete(key);
+      }
+    }
+  }
+}
+
+// Create singleton instance
+const redis = new SimpleCache();
 
 /**
- * Cache utility functions for Redis operations
+ * Cache utility functions for Redis operations (compatible interface)
  */
 export class CacheService {
   /**
@@ -20,14 +112,14 @@ export class CacheService {
   /**
    * Set a value in cache with optional TTL
    */
-  static async set(key: string, value: any, ttlSeconds?: number): Promise<boolean> {
+  static async set(
+    key: string,
+    value: any,
+    ttlSeconds?: number
+  ): Promise<boolean> {
     try {
       const serialized = JSON.stringify(value);
-      if (ttlSeconds) {
-        await redis.setEx(key, ttlSeconds, serialized);
-      } else {
-        await redis.set(key, serialized);
-      }
+      await redis.set(key, serialized, ttlSeconds);
       return true;
     } catch (error) {
       console.error(`Cache set error for key ${key}:`, error);
@@ -53,12 +145,13 @@ export class CacheService {
    */
   static async delMany(keys: string[]): Promise<boolean> {
     try {
-      if (keys.length > 0) {
-        await redis.del(keys);
-      }
+      await redis.delMany(keys);
       return true;
     } catch (error) {
-      console.error(`Cache delete many error for keys ${keys.join(', ')}:`, error);
+      console.error(
+        `Cache delete many error for keys ${keys.join(', ')}:`,
+        error
+      );
       return false;
     }
   }
@@ -95,8 +188,8 @@ export class CacheService {
   static async mget<T>(keys: string[]): Promise<(T | null)[]> {
     try {
       if (keys.length === 0) return [];
-      const values = await redis.mGet(keys);
-      return values.map(value => value ? JSON.parse(value) : null);
+      const values = await redis.mget(keys);
+      return values.map(value => (value ? JSON.parse(value) : null));
     } catch (error) {
       console.error(`Cache mget error for keys ${keys.join(', ')}:`, error);
       return keys.map(() => null);
@@ -106,21 +199,24 @@ export class CacheService {
   /**
    * Set multiple key-value pairs
    */
-  static async mset(keyValuePairs: Record<string, any>, ttlSeconds?: number): Promise<boolean> {
+  static async mset(
+    keyValuePairs: Record<string, any>,
+    ttlSeconds?: number
+  ): Promise<boolean> {
     try {
       const serializedPairs: string[] = [];
       Object.entries(keyValuePairs).forEach(([key, value]) => {
         serializedPairs.push(key, JSON.stringify(value));
       });
-      
-      await redis.mSet(serializedPairs);
-      
+
+      await redis.mset(serializedPairs);
+
       // Set TTL for all keys if specified
       if (ttlSeconds) {
         const keys = Object.keys(keyValuePairs);
         await Promise.all(keys.map(key => redis.expire(key, ttlSeconds)));
       }
-      
+
       return true;
     } catch (error) {
       console.error('Cache mset error:', error);
@@ -171,7 +267,7 @@ export class CacheService {
     try {
       const keys = await redis.keys(pattern);
       if (keys.length > 0) {
-        await redis.del(keys);
+        await redis.delMany(keys);
       }
       return true;
     } catch (error) {
@@ -185,7 +281,11 @@ export class CacheService {
    */
   static async info(): Promise<any> {
     try {
-      return await redis.info();
+      return {
+        keys: await redis.keys('*'),
+        size: (redis as any).cache.size,
+        memory: process.memoryUsage(),
+      };
     } catch (error) {
       console.error('Cache info error:', error);
       return null;
@@ -207,9 +307,11 @@ export const CacheKeys = {
   challenges: (filters?: string) => `challenges${filters ? `:${filters}` : ''}`,
   dailyChallenge: (date: string) => `daily_challenge:${date}`,
   featuredChallenges: () => 'featured_challenges',
-  leaderboard: (type: string, period?: string) => `leaderboard:${type}${period ? `:${period}` : ''}`,
+  leaderboard: (type: string, period?: string) =>
+    `leaderboard:${type}${period ? `:${period}` : ''}`,
   competition: (competitionId: string) => `competition:${competitionId}`,
-  competitionLeaderboard: (competitionId: string) => `competition:${competitionId}:leaderboard`,
+  competitionLeaderboard: (competitionId: string) =>
+    `competition:${competitionId}:leaderboard`,
   rateLimit: (ip: string, endpoint: string) => `rate_limit:${ip}:${endpoint}`,
   session: (sessionId: string) => `session:${sessionId}`,
   blacklistedToken: (tokenId: string) => `blacklisted_token:${tokenId}`,

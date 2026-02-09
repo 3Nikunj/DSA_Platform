@@ -61,6 +61,7 @@ router.get('/search', paginationValidation, validateRequest, asyncHandler(userCo
 router.get('/:userId', userIdValidation, validateRequest, asyncHandler(userController.getUserById));
 
 // Progress and statistics
+router.get('/me/statistics', asyncHandler(userController.getUserStatistics));
 router.get('/:userId/progress', userIdValidation, validateRequest, asyncHandler(userController.getUserProgress));
 router.get('/:userId/achievements', userIdValidation, validateRequest, asyncHandler(userController.getUserAchievements));
 router.get('/:userId/statistics', userIdValidation, validateRequest, asyncHandler(userController.getUserStatistics));

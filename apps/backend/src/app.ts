@@ -3,13 +3,13 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
-import { createClient } from 'redis';
 import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
+import { redisClient } from './config/redis';
 
 // Import routes
 import authRoutes from './routes/auth';
@@ -26,21 +26,12 @@ const app = express();
 
 // Initialize Prisma client
 export const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.SUPABASE_DATABASE_URL,
+    },
+  },
   log: process.env.NODE_ENV === 'development' ? ['query', 'info', 'warn', 'error'] : ['error'],
-});
-
-// Initialize Redis client
-export const redis = createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379',
-});
-
-// Connect to Redis
-redis.on('error', (err) => {
-  console.error('Redis connection error:', err);
-});
-
-redis.on('connect', () => {
-  console.log('Connected to Redis');
 });
 
 // Security middleware
@@ -92,7 +83,9 @@ app.get('/health', async (req, res) => {
     await prisma.$queryRaw`SELECT 1`;
     
     // Check Redis connection
-    await redis.ping();
+    if (redisClient.isOpen) {
+      await redisClient.ping();
+    }
     
     res.status(200).json({
       status: 'healthy',
@@ -149,7 +142,7 @@ process.on('SIGTERM', async () => {
   await prisma.$disconnect();
   
   // Close Redis connection
-  await redis.quit();
+  await redisClient.quit();
   
   process.exit(0);
 });
@@ -161,7 +154,7 @@ process.on('SIGINT', async () => {
   await prisma.$disconnect();
   
   // Close Redis connection
-  await redis.quit();
+  await redisClient.quit();
   
   process.exit(0);
 });

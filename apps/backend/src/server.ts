@@ -1,28 +1,36 @@
 import app from './app';
 import { prisma } from './app';
 import { createClient } from 'redis';
+import { redisClient } from './config/redis';
 
 const PORT = parseInt(process.env.PORT || '5000', 10);
 const HOST = process.env.HOST || '0.0.0.0';
 
-// Initialize Redis client
-const redis = createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379',
-});
+// Initialize Redis client (optional)
+let redis: any = null;
+if (process.env.REDIS_URL) {
+  redis = createClient({
+    url: process.env.REDIS_URL,
+  });
 
-redis.on('error', (err) => {
-  console.error('Redis Client Error:', err);
-});
+  redis.on('error', (err: Error) => {
+    console.error('Redis Client Error:', err);
+  });
 
-redis.on('connect', () => {
-  console.log('Redis Client Connected');
-});
+  redis.on('connect', () => {
+    console.log('Redis Client Connected');
+  });
+}
 
 async function startServer() {
   try {
-    // Connect to Redis
-    await redis.connect();
-    console.log('✅ Redis connected successfully');
+    // Connect to Redis (if configured)
+    if (redis) {
+      await redis.connect();
+      console.log('✅ Redis connected successfully');
+    } else {
+      console.log('⚠️ Redis not configured, running without cache');
+    }
 
     // Test database connection
     await prisma.$connect();
@@ -48,8 +56,10 @@ async function startServer() {
           await prisma.$disconnect();
           console.log('Database connection closed');
           
-          await redis.quit();
-          console.log('Redis connection closed');
+          if (redisClient.isOpen) {
+            await redisClient.quit();
+            console.log('Redis connection closed');
+          }
           
           console.log('Graceful shutdown completed');
           process.exit(0);
@@ -69,7 +79,9 @@ async function startServer() {
     // Cleanup on startup failure
     try {
       await prisma.$disconnect();
-      await redis.quit();
+      if (redis) {
+        await redis.quit();
+      }
     } catch (cleanupError) {
       console.error('Error during cleanup:', cleanupError);
     }

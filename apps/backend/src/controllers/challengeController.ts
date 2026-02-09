@@ -1,11 +1,10 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../config/database';
 import { logger } from '../utils/logger';
 import { AppError, ValidationError, NotFoundError } from '../middleware/errorHandler';
 import { RedisService, redisClient } from '../config/redis';
 import { AuthenticatedRequest } from '../middleware/auth';
 
-const prisma = new PrismaClient();
 const redis = new RedisService(redisClient);
 
 /**

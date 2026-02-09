@@ -2,22 +2,24 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("SUPABASE_DATABASE_URL")
+  schemas  = ["public"]
 }
 
 // User model for authentication and profile
 model User {
-  id        String   @id @default(cuid())
+  id        String   @id @default(dbgenerated("gen_random_uuid()"))
   email     String   @unique
   username  String   @unique
-  password  String
-  firstName String?
-  lastName  String?
+  password  String?
+  firstName String?  @map("first_name")
+  lastName  String?  @map("last_name")
   avatar    String?
   bio       String?
   
@@ -32,14 +34,14 @@ model User {
   streak    Int      @default(0)
   
   // Account status
-  isActive    Boolean  @default(true)
-  isVerified  Boolean  @default(false)
-  isPremium   Boolean  @default(false)
+  isActive    Boolean  @default(true) @map("is_active")
+  isVerified  Boolean  @default(false) @map("is_verified")
+  isPremium   Boolean  @default(false) @map("is_premium")
   
   // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  lastLogin DateTime?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  lastLogin DateTime? @map("last_login")
   
   // Relations
   progress        Progress[]
@@ -50,38 +52,28 @@ model User {
   sessions        Session[]
   
   @@map("users")
-}
-
-// Session model for JWT token management
-model Session {
-  id        String   @id @default(cuid())
-  userId    String
-  token     String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@map("sessions")
+  @@schema("public")
 }
 
 // Algorithm categories
 model Category {
-  id          String @id @default(cuid())
+  id          String @id @default(dbgenerated("gen_random_uuid()"))
   name        String @unique
   description String?
   icon        String?
   color       String?
-  order       Int    @default(0)
+  order       Int    @default(0) @map("order_index")
+  createdAt   DateTime @default(now()) @map("created_at")
   
   algorithms Algorithm[]
   
   @@map("categories")
+  @@schema("public")
 }
 
 // Algorithm model
 model Algorithm {
-  id          String @id @default(cuid())
+  id          String @id @default(dbgenerated("gen_random_uuid()"))
   name        String
   slug        String @unique
   description String
@@ -92,23 +84,23 @@ model Algorithm {
   
   // Metadata
   difficulty    String @default("BEGINNER")
-  timeComplexity String
-  spaceComplexity String
+  timeComplexity String @map("time_complexity")
+  spaceComplexity String @map("space_complexity")
   
   // Gamification
-  xpReward    Int @default(10)
-  coinReward  Int @default(5)
+  xpReward    Int @default(10) @map("xp_reward")
+  coinReward  Int @default(5) @map("coin_reward")
   
   // Status
-  isPublished Boolean @default(false)
+  isPublished Boolean @default(false) @map("is_published")
   
   // Relations
-  categoryId String
+  categoryId String @map("category_id")
   category   Category @relation(fields: [categoryId], references: [id])
   
   // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
   
   // Relations
   progress    Progress[]
@@ -116,28 +108,29 @@ model Algorithm {
   challenges  Challenge[]
   
   @@map("algorithms")
+  @@schema("public")
 }
 
 // User progress tracking
 model Progress {
-  id String @id @default(cuid())
+  id String @id @default(dbgenerated("gen_random_uuid()"))
   
-  userId      String
-  algorithmId String
+  userId      String @map("user_id")
+  algorithmId String @map("algorithm_id")
   
   // Progress status
   status        String @default("NOT_STARTED")
-  completedAt   DateTime?
-  timeSpent     Int            @default(0) // in seconds
+  completedAt   DateTime? @map("completed_at")
+  timeSpent     Int            @default(0) @map("time_spent") // in seconds
   attempts      Int            @default(0)
   
   // Performance metrics
-  bestScore     Float?
-  averageScore  Float?
+  bestScore     Float? @map("best_score")
+  averageScore  Float? @map("average_score")
   
   // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
   
   // Relations
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -145,14 +138,15 @@ model Progress {
   
   @@unique([userId, algorithmId])
   @@map("progress")
+  @@schema("public")
 }
 
 // Code submissions
 model Submission {
-  id String @id @default(cuid())
+  id String @id @default(dbgenerated("gen_random_uuid()"))
   
-  userId      String
-  algorithmId String
+  userId      String @map("user_id")
+  algorithmId String @map("algorithm_id")
   
   // Code details
   code        String
@@ -161,29 +155,30 @@ model Submission {
   // Execution results
   status      String @default("PENDING")
   score       Float?
-  executionTime Int? // in milliseconds
-  memoryUsage   Int? // in bytes
+  executionTime Int? @map("execution_time") // in milliseconds
+  memoryUsage   Int? @map("memory_usage") // in bytes
   
   // Test results
-  testsPassed Int @default(0)
-  testsTotal  Int @default(0)
+  testsPassed Int @default(0) @map("tests_passed")
+  testsTotal  Int @default(0) @map("tests_total")
   
   // Error details
   error       String?
   
   // Timestamps
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at")
   
   // Relations
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   algorithm Algorithm @relation(fields: [algorithmId], references: [id], onDelete: Cascade)
   
   @@map("submissions")
+  @@schema("public")
 }
 
 // Achievement system
 model Achievement {
-  id          String @id @default(cuid())
+  id          String @id @default(dbgenerated("gen_random_uuid()"))
   name        String @unique
   description String
   icon        String
@@ -193,36 +188,37 @@ model Achievement {
   requirement String // JSON string for flexible requirement structure
   
   // Rewards
-  xpReward   Int @default(0)
-  coinReward Int @default(0)
+  xpReward   Int @default(0) @map("xp_reward")
+  coinReward Int @default(0) @map("coin_reward")
   
   // Metadata
-  isHidden   Boolean @default(false)
+  isHidden   Boolean @default(false) @map("is_hidden")
   rarity     String  @default("COMMON")
   
   // Timestamps
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at")
   
   // Relations
   userAchievements UserAchievement[]
   
   @@map("achievements")
+  @@schema("public")
 }
 
 // User achievements junction table
 model UserAchievement {
-  id String @id @default(cuid())
+  id String @id @default(dbgenerated("gen_random_uuid()"))
   
-  userId        String
-  achievementId String
+  userId        String @map("user_id")
+  achievementId String @map("achievement_id")
   
   // Progress
   progress    Float   @default(0) // 0-100
-  isCompleted Boolean @default(false)
+  isCompleted Boolean @default(false) @map("is_completed")
   
   // Timestamps
-  unlockedAt DateTime?
-  createdAt  DateTime  @default(now())
+  unlockedAt DateTime? @map("unlocked_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
   
   // Relations
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -230,49 +226,51 @@ model UserAchievement {
   
   @@unique([userId, achievementId])
   @@map("user_achievements")
+  @@schema("public")
 }
 
 // Coding challenges
 model Challenge {
-  id          String @id @default(cuid())
+  id          String @id @default(dbgenerated("gen_random_uuid()"))
   title       String
   description String
   
   // Challenge details
-  algorithmId String?
+  algorithmId String? @map("algorithm_id")
   difficulty  String @default("BEGINNER")
   
   // Test cases
   testCases   String // JSON string for array of test cases
   
   // Constraints
-  timeLimit   Int @default(5000) // milliseconds
-  memoryLimit Int @default(128)  // MB
+  timeLimit   Int @default(5000) @map("time_limit") // milliseconds
+  memoryLimit Int @default(128) @map("memory_limit") // MB
   
   // Gamification
-  xpReward   Int @default(20)
-  coinReward Int @default(10)
+  xpReward   Int @default(20) @map("xp_reward")
+  coinReward Int @default(10) @map("coin_reward")
   
   // Status
-  isActive Boolean @default(true)
+  isActive Boolean @default(true) @map("is_active")
   
   // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
   
   // Relations
   algorithm Algorithm? @relation(fields: [algorithmId], references: [id])
   attempts  ChallengeAttempt[]
   
   @@map("challenges")
+  @@schema("public")
 }
 
 // Challenge attempts
 model ChallengeAttempt {
-  id String @id @default(cuid())
+  id String @id @default(dbgenerated("gen_random_uuid()"))
   
-  userId      String
-  challengeId String
+  userId      String @map("user_id")
+  challengeId String @map("challenge_id")
   
   // Submission details
   code        String
@@ -281,36 +279,37 @@ model ChallengeAttempt {
   // Results
   status        String @default("PENDING")
   score         Float?
-  executionTime Int? // milliseconds
-  memoryUsage   Int? // bytes
+  executionTime Int? @map("execution_time") // milliseconds
+  memoryUsage   Int? @map("memory_usage") // bytes
   
   // Test results
-  testsPassed Int @default(0)
-  testsTotal  Int @default(0)
+  testsPassed Int @default(0) @map("tests_passed")
+  testsTotal  Int @default(0) @map("tests_total")
   
   // Timestamps
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at")
   
   // Relations
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
   
   @@map("challenge_attempts")
+  @@schema("public")
 }
 
 // Competitions
 model Competition {
-  id          String @id @default(cuid())
+  id          String @id @default(dbgenerated("gen_random_uuid()"))
   title       String
   description String
   
   // Competition details
-  startTime DateTime
-  endTime   DateTime
+  startTime DateTime @map("start_time")
+  endTime   DateTime @map("end_time")
   
   // Rules
-  maxParticipants Int?
-  isPublic        Boolean @default(true)
+  maxParticipants Int? @map("max_participants")
+  isPublic        Boolean @default(true) @map("is_public")
   
   // Prizes
   prizes String? // JSON string for prize structure
@@ -319,31 +318,32 @@ model Competition {
   status String @default("UPCOMING")
   
   // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
   
   // Relations
   participants CompetitionParticipant[]
   
   @@map("competitions")
+  @@schema("public")
 }
 
 // Competition participants
 model CompetitionParticipant {
-  id String @id @default(cuid())
+  id String @id @default(dbgenerated("gen_random_uuid()"))
   
-  userId        String
-  competitionId String
+  userId        String @map("user_id")
+  competitionId String @map("competition_id")
   
   // Performance
   score    Float   @default(0)
   rank     Int?
   
   // Status
-  isActive Boolean @default(true)
+  isActive Boolean @default(true) @map("is_active")
   
   // Timestamps
-  joinedAt DateTime @default(now())
+  joinedAt DateTime @default(now()) @map("joined_at")
   
   // Relations
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -351,6 +351,22 @@ model CompetitionParticipant {
   
   @@unique([userId, competitionId])
   @@map("competition_participants")
+  @@schema("public")
+}
+
+// User sessions for authentication
+model Session {
+  id        String   @id @default(dbgenerated("gen_random_uuid()"))
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("sessions")
+  @@schema("public")
 }
 
 // Note: SQLite doesn't support enums, so we use strings with default values

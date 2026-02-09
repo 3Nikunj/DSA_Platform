@@ -85,7 +85,7 @@ export const progressService = {
 
   // Get progress for a specific category
   async getCategoryProgress(categoryId: string): Promise<CategoryProgress> {
-    const response = await api.get(`/progress/categories/${categoryId}`);
+    const response = await api.get(`/progress/category/${categoryId}`);
     return response.data;
   },
 

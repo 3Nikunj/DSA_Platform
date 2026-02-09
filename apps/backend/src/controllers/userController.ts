@@ -1,12 +1,11 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../config/database';
 import bcrypt from 'bcryptjs';
 import { logger } from '../utils/logger';
 import { AppError, ValidationError, NotFoundError } from '../middleware/errorHandler';
 import { RedisService, redisClient } from '../config/redis';
 import { AuthenticatedRequest } from '../middleware/auth';
 
-const prisma = new PrismaClient();
 const redis = new RedisService(redisClient);
 
 /**
@@ -26,20 +25,18 @@ export const getCurrentUser = async (req: AuthenticatedRequest, res: Response) =
         lastName: true,
         avatar: true,
         bio: true,
-        // location field doesn't exist in User model
-        // website field doesn't exist in User model
-        // githubUsername field doesn't exist in User model
-         // linkedinUsername field doesn't exist in User model
+        theme: true,
+        language: true,
         level: true,
         xp: true,
+        coins: true,
         streak: true,
-        // longestStreak field doesn't exist in User model
-        // totalSolved field doesn't exist in User model
+        isActive: true,
         isVerified: true,
         isPremium: true,
-        // preferences field doesn't exist in User model
         createdAt: true,
-        // lastActiveAt field doesn't exist in User model
+        updatedAt: true,
+        lastLogin: true,
       },
     });
 
@@ -69,10 +66,6 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
       firstName,
       lastName,
       bio,
-      // location field doesn't exist in User model
-      website,
-      githubUsername,
-      linkedinUsername,
     } = req.body;
 
     const updatedUser = await prisma.user.update({
@@ -81,10 +74,6 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
         firstName,
         lastName,
         bio,
-        // location field doesn't exist in User model
-        // website field doesn't exist in User model
-        // githubUsername field doesn't exist in User model
-        // linkedinUsername field doesn't exist in User model
         updatedAt: new Date(),
       },
       select: {
@@ -93,10 +82,6 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
         firstName: true,
         lastName: true,
         bio: true,
-        // location field doesn't exist in User model
-        // website field doesn't exist in User model
-        // githubUsername field doesn't exist in User model
-         // linkedinUsername field doesn't exist in User model
         updatedAt: true,
       },
     });

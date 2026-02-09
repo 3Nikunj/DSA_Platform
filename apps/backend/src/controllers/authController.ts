@@ -91,11 +91,9 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   res.status(201).json({
     success: true,
     message: 'User registered successfully',
-    data: {
-      user,
-      accessToken,
-      refreshToken,
-    },
+    user,
+    token: accessToken,
+    refreshToken,
   });
 };
 
@@ -103,11 +101,14 @@ export const register = async (req: Request, res: Response): Promise<void> => {
  * Login user
  */
 export const login = async (req: Request, res: Response): Promise<void> => {
-  const { email, password } = req.body;
+  const { email, username, password } = req.body;
+
+  // Build where clause for email or username
+  const whereClause = email ? { email } : { username };
 
   // Find user
   const user = await prisma.user.findUnique({
-    where: { email },
+    where: whereClause,
     select: {
       id: true,
       email: true,
@@ -125,12 +126,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   });
 
   if (!user) {
-    loggers.auth('login', undefined, email, false, new Error('User not found'));
+    loggers.auth('login', undefined, email || username, false, new Error('User not found'));
     throw new AuthenticationError('Invalid email or password');
   }
 
   if (!user.isActive) {
-    loggers.auth('login', user.id, email, false, new Error('Account deactivated'));
+    loggers.auth('login', user.id, email || username, false, new Error('Account deactivated'));
     throw new AuthenticationError('Account has been deactivated');
   }
 
@@ -174,11 +175,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   res.json({
     success: true,
     message: 'Login successful',
-    data: {
-      user: userWithoutPassword,
-      accessToken,
-      refreshToken,
-    },
+    user: userWithoutPassword,
+    token: accessToken,
+    refreshToken,
   });
 };
 
@@ -238,9 +237,8 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
   res.json({
     success: true,
     message: 'Token refreshed successfully',
-    data: {
-      accessToken,
-    },
+    token: accessToken,
+    user: session.user,
   });
 };
 
@@ -311,10 +309,7 @@ export const getCurrentUser = async (req: Request, res: Response): Promise<void>
     throw new NotFoundError('User not found');
   }
 
-  res.json({
-    success: true,
-    data: { user },
-  });
+  res.json(user);
 };
 
 /**
@@ -508,6 +503,8 @@ export const resendVerification = async (req: Request, res: Response): Promise<v
     message: 'Verification email sent',
   });
 };
+
+
 
 // OAuth placeholder methods (to be implemented)
 export const googleAuth = async (req: Request, res: Response): Promise<void> => {

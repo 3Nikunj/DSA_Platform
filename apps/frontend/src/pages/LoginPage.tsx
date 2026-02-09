@@ -16,8 +16,8 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import toast from 'react-hot-toast';
 
 const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(1, 'Password is required'),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
@@ -37,7 +37,7 @@ export const LoginPage: React.FC = () => {
 
   const onSubmit = async (data: LoginFormData) => {
     try {
-      await login(data.email, data.password);
+      await login(data.email, data.password, 'email');
       navigate('/dashboard');
     } catch {
       // Error is already handled in the store
