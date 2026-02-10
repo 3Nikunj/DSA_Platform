@@ -2,6 +2,6 @@
   "version": 2,
   "buildCommand": "npm run build",
   "installCommand": "npm ci",
-  "outputDirectory": "apps/frontend/dist",
+  "outputDirectory": "apps/frontend",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
