@@ -12,7 +12,7 @@ import {
   LockClosedIcon,
   UserIcon,
 } from '@heroicons/react/24/outline';
-import { useAuthStore } from '../stores/authStore';
+import { useAuthStore } from '../stores/authStore-supabase';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 
 const registerSchema = z.object({
