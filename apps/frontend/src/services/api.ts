@@ -1,9 +1,14 @@
 import axios from 'axios';
-import type { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
+import type {
+  AxiosInstance,
+  InternalAxiosRequestConfig,
+  AxiosResponse,
+} from 'axios';
 import toast from 'react-hot-toast';
 
 // API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL =
+  import.meta.env.VITE_SUPABASE_URL || 'http://localhost:5000/api';
 
 // Create axios instance
 export const api: AxiosInstance = axios.create({
@@ -40,7 +45,7 @@ api.interceptors.request.use(
 
     return config;
   },
-  (error) => {
+  error => {
     return Promise.reject(error);
   }
 );
@@ -50,7 +55,7 @@ api.interceptors.response.use(
   (response: AxiosResponse) => {
     return response;
   },
-  async (error) => {
+  async error => {
     const originalRequest = error.config;
 
     // Handle 401 errors (unauthorized)
@@ -61,7 +66,7 @@ api.interceptors.response.use(
         // Try to refresh token
         const { useAuthStore } = await import('../stores/authStore');
         await useAuthStore.getState().refreshToken();
-        
+
         // Retry original request
         return api(originalRequest);
       } catch (refreshError) {
@@ -78,7 +83,7 @@ api.interceptors.response.use(
     } else {
       // Handle other HTTP errors
       const message = error.response.data?.message || 'An error occurred';
-      
+
       // Don't show toast for certain status codes that are handled elsewhere
       if (![401, 422].includes(error.response.status)) {
         toast.error(message);
@@ -123,7 +128,10 @@ export class AuthService {
   }
 
   static async resetPassword(token: string, password: string) {
-    const response = await api.post('/auth/reset-password', { token, password });
+    const response = await api.post('/auth/reset-password', {
+      token,
+      password,
+    });
     return response.data;
   }
 }
@@ -134,13 +142,15 @@ export class UserService {
     return response.data;
   }
 
-  static async updateProfile(data: Partial<{
-    firstName: string;
-    lastName: string;
-    username: string;
-    email: string;
-    avatar?: string;
-  }>) {
+  static async updateProfile(
+    data: Partial<{
+      firstName: string;
+      lastName: string;
+      username: string;
+      email: string;
+      avatar?: string;
+    }>
+  ) {
     const response = await api.put('/users/profile', data);
     return response.data;
   }
@@ -148,7 +158,7 @@ export class UserService {
   static async uploadAvatar(file: File) {
     const formData = new FormData();
     formData.append('avatar', file);
-    
+
     const response = await api.post('/users/avatar', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
@@ -213,11 +223,14 @@ export class ProgressService {
     return response.data;
   }
 
-  static async updateProgress(algorithmId: string, data: {
-    completed?: boolean;
-    timeSpent?: number;
-    attempts?: number;
-  }) {
+  static async updateProgress(
+    algorithmId: string,
+    data: {
+      completed?: boolean;
+      timeSpent?: number;
+      attempts?: number;
+    }
+  ) {
     const response = await api.put(`/progress/${algorithmId}`, data);
     return response.data;
   }
@@ -245,10 +258,13 @@ export class ChallengeService {
     return response.data;
   }
 
-  static async submitSolution(challengeId: string, data: {
-    code: string;
-    language: string;
-  }) {
+  static async submitSolution(
+    challengeId: string,
+    data: {
+      code: string;
+      language: string;
+    }
+  ) {
     const response = await api.post(`/challenges/${challengeId}/submit`, data);
     return response.data;
   }
