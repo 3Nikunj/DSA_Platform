@@ -60,25 +60,36 @@ export const useAuthStore = create<AuthStore>()(persist(
       ...initialState,
 
       login: async (email: string, password: string) => {
+        console.log('AuthStore: Attempting login for email:', email);
         try {
           set({ isLoading: true, error: null });
           
+          console.log('AuthStore: Calling supabase.auth.signInWithPassword...');
           const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password,
           });
+          console.log('AuthStore: Response from signInWithPassword:', { data, error });
 
-          if (error) throw error;
+          if (error) {
+            console.error('AuthStore: Supabase signInWithPassword error:', error);
+            throw error;
+          }
 
           if (data.user && data.session) {
+            console.log('AuthStore: Supabase signInWithPassword successful. Fetching user profile...');
             // Get user profile
             const { data: profile, error: profileError } = await supabase
               .from('users')
               .select('*')
               .eq('id', data.user.id)
               .single();
+            console.log('AuthStore: Response from fetching user profile:', { profile, profileError });
 
-            if (profileError) throw profileError;
+            if (profileError) {
+              console.error('AuthStore: Error fetching user profile:', profileError);
+              throw profileError;
+            }
 
             const user: User = {
               id: profile.id,
@@ -104,9 +115,14 @@ export const useAuthStore = create<AuthStore>()(persist(
             });
 
             toast.success(`Welcome back, ${user.firstName}!`);
+            console.log('AuthStore: Login successful, state updated.');
+          } else {
+            console.warn('AuthStore: signInWithPassword returned no user or session data.');
+            throw new Error('Login failed: No user or session data.');
           }
         } catch (error: unknown) {
           const errorMessage = (error as Error).message || 'Login failed';
+          console.error('AuthStore: Login catch block error:', errorMessage);
           set({
             user: null,
             session: null,
@@ -199,8 +215,11 @@ export const useAuthStore = create<AuthStore>()(persist(
       },
 
       logout: async () => {
+        console.log('AuthStore: Attempting logout.');
         try {
+          console.log('AuthStore: Calling supabase.auth.signOut()...');
           await supabase.auth.signOut();
+          console.log('AuthStore: supabase.auth.signOut() completed.');
           
           set({
             user: null,
@@ -211,8 +230,9 @@ export const useAuthStore = create<AuthStore>()(persist(
           });
 
           toast.success('Logged out successfully');
+          console.log('AuthStore: Logout successful, state updated.');
         } catch (error) {
-          console.error('Logout error:', error);
+          console.error('AuthStore: Logout error:', error);
         }
       },
 
